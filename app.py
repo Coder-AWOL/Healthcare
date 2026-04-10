@@ -4,7 +4,6 @@ import numpy as np
 import re
 from collections import Counter
 import math
-import pickle
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -15,12 +14,10 @@ st.set_page_config(
 # ---------------- DARK MODE SAFE CSS ----------------
 st.markdown("""
 <style>
-/* General text visibility fix */
 html, body, [class*="css"]  {
     color: inherit !important;
 }
 
-/* Card styling */
 .disease-card {
     background-color: rgba(255,255,255,0.05);
     border-radius: 12px;
@@ -29,7 +26,6 @@ html, body, [class*="css"]  {
     border-left: 5px solid #4CAF50;
 }
 
-/* Header */
 .main-header {
     font-size: 2.2rem;
     text-align: center;
@@ -39,30 +35,33 @@ html, body, [class*="css"]  {
     color: white !important;
 }
 
-/* Buttons */
-.stButton>button {
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-weight: bold;
-}
-
-/* Text area fix */
 textarea {
     color: inherit !important;
 }
 
-/* Sidebar fix */
 section[data-testid="stSidebar"] {
     color: inherit !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- LOAD ML ----------------
+# ---------------- LOAD MODEL (AUTO TRAIN) ----------------
 @st.cache_resource
 def load_model():
-    model = pickle.load(open("model.pkl", "rb"))
-    vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.ensemble import RandomForestClassifier
+
+    df = pd.read_csv("Diseases_Symptoms.csv")
+
+    X = df["Symptoms"]
+    y = df["Name"]
+
+    vectorizer = TfidfVectorizer()
+    X_vec = vectorizer.fit_transform(X)
+
+    model = RandomForestClassifier()
+    model.fit(X_vec, y)
+
     return model, vectorizer
 
 model, vectorizer = load_model()
@@ -108,7 +107,7 @@ def calculate_similarity(text1, text2):
 def load_data():
     return pd.read_csv("Diseases_Symptoms.csv")
 
-# ---------------- FIND MATCHES ----------------
+# ---------------- FIND SIMILAR ----------------
 def find_similar(symptoms, df):
     cleaned = preprocess_text(symptoms)
     results = []
@@ -152,10 +151,16 @@ def main():
                 st.warning("Please enter symptoms")
                 return
 
+            # ML prediction
             prediction = ml_predict(symptoms)
+
+            # Similar diseases
             results = find_similar(symptoms, df)
+
+            # Severity
             severity = classify_severity(symptoms)
 
+            # -------- DISPLAY --------
             st.subheader("🤖 ML Prediction")
             st.success(prediction)
 
@@ -177,7 +182,7 @@ def main():
                 """, unsafe_allow_html=True)
 
     with col2:
-        st.info("AI-based symptom analysis system using ML + NLP")
+        st.info("AI-based system using ML + NLP + real dataset")
 
 if __name__ == "__main__":
     main()
